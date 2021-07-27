@@ -450,25 +450,28 @@ def stack_flats_(fnames : List[str], n : int, prefix : str = ''):
         else:
             return fnames_stack, flat_stack 
 
-def flats_to_flat_field_(flat3d : T_ARRAY, pad_x : int = 5, pad_y : int = 10):
+def flats_to_flat_field_(flat3d : T_ARRAY, sflat2d: T_ARRAY, pad_x : int = 5, pad_y : int = 10):
 
     CHECK_NDIM_(flat3d, "flat3d", 3)
+    CHECK_NDIM_(sflat2d, "sflat2d", 2)
 
     flt_avg : T_ARRAY = flat3d.mean(axis=0)
     flt_fld = _numpy.ones_like( flt_avg )
     flt_avg_sub : T_ARRAY = flt_avg[pad_y:-pad_y, pad_x:-pad_x]
-    flt_fld[pad_y:-pad_y, pad_x:-pad_x] = flt_avg_sub / flt_avg_sub.mean(axis=1).reshape(-1,1)
+    sflat2d_sub : T_ARRAY = sflat2d[pad_y:-pad_y, pad_x:-pad_x]
+    mean1d = sflat2d_sub.mean(axis=1).reshape(-1,1)
+    flt_fld[pad_y:-pad_y, pad_x:-pad_x] = flt_avg_sub / ( mean1d * flt_avg_sub.mean()/ mean1d.mean())
 
     return flt_fld
 
-def flat3dLR_to_flat_field_all_(flat3d_LR : Dict[str,T_ARRAY], sw_params : Split_Warp_Params, original_shape : Tuple[int,int], pad_x : int = 5, pad_y : int = 10):
+def flat3dLR_to_flat_field_all_(flat3d_LR : Dict[str,T_ARRAY], sw_params : Split_Warp_Params, sflat2d_panel : Dict[str,T_ARRAY], original_shape : Tuple[int,int], pad_x : int = 5, pad_y : int = 10):
 
 
     coords_map = sw_params.coords_map
 
     flat_field : Dict[str, T_ARRAY] = {}
     for name in ("left", "right"):
-        flt_fld = flats_to_flat_field_(flat3d_LR[name])
+        flt_fld = flats_to_flat_field_(flat3d_LR[name], sflat2d_panel[name])
 
         src = _numpy.append( coords_map[name]["L"][:,:2][:,::-1], coords_map[name]["R"][:,:2][:,::-1], axis=0 )
         dst = _numpy.append( coords_map[name]["L"][:,2:][:,::-1], coords_map[name]["R"][:,2:][:,::-1], axis=0 )
@@ -499,13 +502,24 @@ def make_angle_flat_( fnames : List[str] , dark : T_ARRAY,
                       split_center : Tuple[int,int],
                       split_inner_offset : int = 40, prefix : str = '' ):
 
+
     _, flat0 = _load_fits_(fnames[0], verbose=False)
     flat0 = flat0[:,:,:] - dark[:,:]
     
+    sw_params, sw_panels = find_split_and_warp_params_(flat0, xy_lines, split_center=split_center, split_inner_offset=split_inner_offset)
+
+    # make flat mean along (dataset, angle)
     nF = len(fnames)
     nA, nrow, ncol = flat0.shape
-
-    sw_params, sw_panels = find_split_and_warp_params_(flat0, xy_lines, split_center=split_center, split_inner_offset=split_inner_offset)
+    sflat2d = flat0.mean(axis=0)
+    del flat0
+    print("Average mean flat along (dataset, angle)")
+    for kF in range(1,nF):
+        _, flat0 = _load_fits_(fnames[0], verbose=False)
+        flat0 = flat0[:,:,:] - dark[:,:]
+        sflat2d[:,:] += flat0.mean(axis=0)
+    sflat2d[:,:] /= nF
+    sflat2d_panel = split_and_warp_(sflat2d[:,:], sw_params).panel_warp
 
     flat_all = _numpy.empty( (nA, nrow, ncol) )
     for kA in range(nA):
@@ -523,7 +537,7 @@ def make_angle_flat_( fnames : List[str] , dark : T_ARRAY,
             for name in ("left","right"):
                 flat3d_LR[name][kF,:,:] = flat_panels.panel_warp[name]
 
-        flat_all[kA,:,:] = flat3dLR_to_flat_field_all_(flat3d_LR , sw_params , (nrow, ncol))
+        flat_all[kA,:,:] = flat3dLR_to_flat_field_all_(flat3d_LR , sw_params , sflat2d_panel, (nrow, ncol))
     
     if len(prefix) > 0:
         
