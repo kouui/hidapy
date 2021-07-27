@@ -384,8 +384,44 @@ def coords_warp_spline_(img : T_ARRAY, tform : List, interpolation_order : int =
 
 
 
+#-----------------------------------------------------------------------------
+# swap and align calibrated images
+from .Flat import Split_Warp_Params
+#-----------------------------------------------------------------------------
 
+def split_and_align_img_(img : T_ARRAY, sw_params : Split_Warp_Params):
 
+    CHECK_NDIM_(img, "img", 2 )
+
+    #split
+    xr = sw_params.xr
+    panel : Dict[str, T_ARRAY] = {}
+    for name in ("left", "right"):
+        xr0 = xr[name]
+        panel[name]  = img[:,xr0[0]:xr0[1]]
+    # shift
+    dyx = sw_params.dyx
+    panel["right"] = _fft_shift_(panel["right"], dyx["right"] )
+
+    return panel
+
+def split_and_align_img3d_( img3d : T_ARRAY, sw_params : Split_Warp_Params ):
+
+    CHECK_NDIM_(img3d, "img3d", 3 )
+
+    panel3d : Dict[str, T_ARRAY] = {}
+    panel = split_and_align_img_(img3d[0,:,:], sw_params)
+    panel3d : Dict[str, T_ARRAY] = {}
+    for key, arr in panel.items():
+        panel3d[key] = _numpy.empty( (img3d.shape[0],arr.shape[0],arr.shape[1]), dtype="float64")
+        panel3d[key][0,:,:] = arr[:,:]
+
+    for k in range(1, img3d.shape[0]):
+        panel = split_and_align_img_(img3d[k,:,:], sw_params)
+        for key, arr in panel.items():
+            panel3d[key][k,:,:] = arr[:,:]
+
+    return panel3d
 
 
 

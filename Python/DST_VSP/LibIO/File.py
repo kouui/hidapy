@@ -62,6 +62,32 @@ def load_json_(fname : str):
 
     return data
 
+#-----------------------------------------------------------------------------
+# yaml io
+#-----------------------------------------------------------------------------
+
+def dump_yaml_(data : Any, fname : str):
+    import yaml as _yaml
+    with open(fname, 'w') as f:
+        _yaml.dump(data, f, default_flow_style=False)
+
 #----------------------------------------------------------------------------
 # hdf5 io
 #----------------------------------------------------------------------------
+
+#----------------------------------------------------------------------------
+# joblib io
+#----------------------------------------------------------------------------
+
+def dump_joblib_(data : Any, file_path : str):
+    import joblib
+    with open(file_path, mode="wb") as handle:
+        joblib.dump(data, handle, compress=3)
+    print(f"saved as {file_path}")
+
+def load_joblib_(file_path : str) -> Any:
+    import joblib
+    with open(file_path, 'rb') as handle:
+        obj = joblib.load(handle)
+
+    return obj

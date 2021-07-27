@@ -6,6 +6,7 @@
 from ..ImportAll import *
 
 import matplotlib.pyplot as _plt
+import numpy as _numpy
 
 def show_image_and_hist_(img : T_ARRAY, name : Optional[str] = None, 
         vmin : Union[None, float, int]=None, 
