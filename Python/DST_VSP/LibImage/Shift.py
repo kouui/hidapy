@@ -13,8 +13,8 @@ import cv2 as _cv2
 
 def cv2_shift2d_(src : T_ARRAY, tx : float, ty : float):
 
-    if src.ndim != 2:
-        raise ValueError(f"src.ndim = {src.ndim}, must == 2")
+    CHECK_NDIM_(src, "src", 2)
+
     rows, cols = src.shape
 
     M = _numpy.float32( [[1,0,tx],[0,1,ty]] )
@@ -25,8 +25,8 @@ def cv2_shift2d_(src : T_ARRAY, tx : float, ty : float):
 
 def cv2_shift1d_(src : T_ARRAY, t : float):
 
-    if src.ndim != 1:
-        raise ValueError(f"src.ndim = {src.ndim}, must == 1")
+    CHECK_NDIM_(src, "src", 1)
+    
     rows = src.size
     cols = 1
     src2d = src.reshape(-1,1)
